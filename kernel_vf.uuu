@@ -1,0 +1,45 @@
+uuu_version 1.0.1
+
+SDP: boot -f files/u-boot-imx6sxea-com.imx
+
+FB: ucmd setenv fastboot_dev mmc
+FB: ucmd setenv mmcdev ${emmc_dev}
+FB: ucmd mmc dev ${emmc_dev}
+FB: ucmd setenv emmc_cmd mmc partconf ${emmc_dev} 0 1 0;
+FB: ucmd if test "${emmc_skip_fb}" != "yes"; then run emmc_cmd; fi
+FB: ucmd setenv emmc_cmd mmc bootbus ${emmc_dev} 2 2 1;
+FB: ucmd if test "${emmc_skip_fb}" != "yes"; then run emmc_cmd; fi
+
+FB: ucmd setenv fastboot_buffer ${loadaddr}
+FB: download -f files/zImage-imx6sxea-com.bin
+FB: ucmd setenv fastboot_buffer ${fdt_addr}
+FB: download -f files/imx6sxea-com-kit_v2-m4.dtb
+FB: ucmd setenv fastboot_buffer ${initrd_addr}
+FB: download -f files/fsl-image-mfgtool-initramfs-imx_mfgtools.cpio.gz.u-boot
+FB: acmd ${kboot} ${loadaddr} ${initrd_addr} ${fdt_addr}
+
+# Wait for emmc
+FBK: ucmd while [ ! -e /dev/mmcblk*boot0 ]; do sleep 1; echo "wait for /dev/mmcblk*boot* appear"; done;
+
+# get emmc device
+FBK: ucmd dev=`ls /dev/mmcblk*boot*`; dev=($dev); dev=${dev[0]}; dev=${dev#/dev/mmcblk}; dev=${dev%boot*}; echo $dev > /tmp/mmcdev;
+
+FBK: ucp mksdcard.sh.tar t:/tmp
+FBK: ucmd tar xf /tmp/mksdcard.sh.tar -C /tmp
+FBK: ucmd mmc=`cat /tmp/mmcdev`; sh /tmp/mksdcard.sh /dev/mmcblk${mmc}
+
+# format partition
+FBK: ucmd mmc=`cat /tmp/mmcdev`; mkfs.vfat /dev/mmcblk${mmc}p1
+FBK: ucmd mkdir -p /mnt/fat
+FBK: ucmd mmc=`cat /tmp/mmcdev`; mount -t vfat /dev/mmcblk${mmc}p1 /mnt/fat
+
+# Copy kernel and dtb files
+FBK: ucp  files/zImage-imx6sxea-com.bin t:/mnt/fat/zImage
+FBK: ucp  files/imx6sxea-com-kit_v2-m4.dtb t:/mnt/fat
+FBK: ucp  files/boot.scr t:/mnt/fat
+
+# Copy KEPM M4 application
+FBK: ucp  files/M4ERPC.bin t:/mnt/fat
+FBK: ucmd umount /mnt/fat
+
+FBK: DONE

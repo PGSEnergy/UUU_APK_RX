@@ -1,0 +1,11 @@
+uuu_version 1.0.1
+
+SDP: boot -f files/u-boot-imx7dea-com.imx
+
+FB: ucmd setenv fastboot_dev mmc
+FB: ucmd setenv mmcdev ${emmc_dev}
+FB: ucmd mmc dev ${emmc_dev}
+FB: flash -raw2sparse all files/ea-image-base-imx6sxea-com.sdcard
+FB: flash bootloader files/u-boot-imx6sxea-com.imx
+FB: ucmd mmc partconf ${emmc_dev} 0 1 0
+FB: done

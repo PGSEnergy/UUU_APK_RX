@@ -1,0 +1,36 @@
+uuu_version 1.0.1
+
+SDP: boot -f files/u-boot-imx6sxea-com.imx
+
+FB: ucmd setenv fastboot_dev mmc
+FB: ucmd setenv mmcdev ${emmc_dev}
+FB: ucmd mmc dev ${emmc_dev}
+FB: ucmd setenv emmc_cmd mmc partconf ${emmc_dev} 0 1 0;
+FB: ucmd if test "${emmc_skip_fb}" != "yes"; then run emmc_cmd; fi
+FB: ucmd setenv emmc_cmd mmc bootbus ${emmc_dev} 2 2 1;
+FB: ucmd if test "${emmc_skip_fb}" != "yes"; then run emmc_cmd; fi
+
+FB: ucmd setenv fastboot_buffer ${loadaddr}
+FB: download -f files/zImage-imx6sxea-com.bin
+FB: ucmd setenv fastboot_buffer ${fdt_addr}
+FB: download -f files/imx6sxea-com-kit.dtb
+FB: ucmd setenv fastboot_buffer ${initrd_addr}
+FB: download -f files/fsl-image-mfgtool-initramfs-imx_mfgtools.cpio.gz.u-boot
+FB: acmd ${kboot} ${loadaddr} ${initrd_addr} ${fdt_addr}
+
+# Wait for emmc
+FBK: ucmd while [ ! -e /dev/mmcblk*boot0 ]; do sleep 1; echo "wait for /dev/mmcblk*boot* appear"; done;
+
+# get emmc device
+FBK: ucmd dev=`ls /dev/mmcblk*boot*`; dev=($dev); dev=${dev[0]}; dev=${dev#/dev/mmcblk}; dev=${dev%boot*}; echo $dev > /tmp/mmcdev;
+
+FBK: ucmd mmc=`cat /tmp/mmcdev`; dd if=/dev/zero of=/dev/mmcblk${mmc} bs=1k seek=384 conv=fsync count=129
+FBK: ucmd mmc=`cat /tmp/mmcdev`; echo 0 > /sys/block/mmcblk${mmc}boot0/force_ro
+FBK: ucp files/SPL-imx6sxea-com t:/tmp
+FBK: ucmd mmc=`cat /tmp/mmcdev`; dd if=/tmp/SPL-imx6sxea-com of=/dev/mmcblk${mmc}boot0 bs=512 seek=2
+FBK: ucp files/u-boot-imx6sxea-com.img t:/tmp
+FBK: ucmd mmc=`cat /tmp/mmcdev`; dd if=/tmp/u-boot-imx6sxea-com.img of=/dev/mmcblk${mmc}boot0 bs=512 seek=138
+FBK: ucmd mmc=`cat /tmp/mmcdev`; echo 1 > /sys/block/mmcblk${mmc}boot0/force_ro
+FBK: ucmd mmc=`cat /tmp/mmcdev`; mmc bootpart enable 1 1 /dev/mmcblk${mmc}
+
+FBK: DONE
